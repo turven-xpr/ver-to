@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../models/task_model.dart';
 import '../../providers/task_provider.dart';
 import '../../widgets/task_tile.dart';
 import '../../widgets/add_task_dialog.dart';
@@ -13,7 +14,7 @@ class HistoryTab extends StatefulWidget {
 }
 
 class _HistoryTabState extends State<HistoryTab> {
-  int _selectedSegment = 0; // 0: Completed, 1: Uncompleted
+  int _selectedSegment = 0; // 0: Completed, 1: Pending, 2: Incompleted
 
   @override
   Widget build(BuildContext context) {
@@ -21,10 +22,18 @@ class _HistoryTabState extends State<HistoryTab> {
 
     final completed = taskProvider.completedTasks;
     final uncompleted = taskProvider.uncompletedTasks;
+    final incompleted = taskProvider.incompletedTasks;
     final total = taskProvider.tasks.length;
     final rate = total > 0 ? ((completed.length / total) * 100).toInt() : 0;
 
-    final displayTasks = _selectedSegment == 0 ? completed : uncompleted;
+    final List<TaskModel> displayTasks;
+    if (_selectedSegment == 0) {
+      displayTasks = completed;
+    } else if (_selectedSegment == 1) {
+      displayTasks = uncompleted;
+    } else {
+      displayTasks = incompleted;
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F4F0),
@@ -148,13 +157,13 @@ class _HistoryTabState extends State<HistoryTab> {
                           children: [
                             Expanded(
                               child: _buildMetricTile(
-                                title: "Total Tasks",
+                                title: "Total",
                                 value: "$total",
                                 icon: Icons.format_list_bulleted,
                                 color: const Color(0xFF5E544E),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 6),
                             Expanded(
                               child: _buildMetricTile(
                                 title: "Completed",
@@ -163,13 +172,22 @@ class _HistoryTabState extends State<HistoryTab> {
                                 color: const Color(0xFF2E7D32),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 6),
                             Expanded(
                               child: _buildMetricTile(
                                 title: "Pending",
                                 value: "${uncompleted.length}",
                                 icon: Icons.hourglass_top,
-                                color: const Color(0xFFD84315),
+                                color: const Color(0xFF1565C0),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: _buildMetricTile(
+                                title: "Incomplete",
+                                value: "${incompleted.length}",
+                                icon: Icons.remove_circle_outline,
+                                color: const Color(0xFFE65100),
                               ),
                             ),
                           ],
@@ -193,6 +211,11 @@ class _HistoryTabState extends State<HistoryTab> {
                               label: Text("Pending (${uncompleted.length})"),
                               icon: const Icon(Icons.pending_actions, size: 16),
                             ),
+                            ButtonSegment(
+                              value: 2,
+                              label: Text("Incompleted (${incompleted.length})"),
+                              icon: const Icon(Icons.remove_circle_outline, size: 16),
+                            ),
                           ],
                           selected: {_selectedSegment},
                           onSelectionChanged: (val) {
@@ -206,6 +229,14 @@ class _HistoryTabState extends State<HistoryTab> {
                           icon: const Icon(Icons.delete_sweep, color: Colors.red),
                           tooltip: "Clear All Completed",
                           onPressed: () => _confirmClearCompleted(context, taskProvider),
+                        ),
+                      ],
+                      if (_selectedSegment == 2 && incompleted.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.delete_sweep, color: Colors.red),
+                          tooltip: "Clear All Incompleted",
+                          onPressed: () => _confirmClearIncompleted(context, taskProvider),
                         ),
                       ],
                     ],
@@ -223,7 +254,9 @@ class _HistoryTabState extends State<HistoryTab> {
                     Icon(
                       _selectedSegment == 0
                           ? Icons.checklist_rtl
-                          : Icons.celebration_outlined,
+                          : _selectedSegment == 1
+                              ? Icons.celebration_outlined
+                              : Icons.thumb_up_alt_outlined,
                       size: 48,
                       color: const Color(0xFF9E948D),
                     ),
@@ -231,7 +264,9 @@ class _HistoryTabState extends State<HistoryTab> {
                     Text(
                       _selectedSegment == 0
                           ? "No completed tasks yet"
-                          : "No pending tasks!",
+                          : _selectedSegment == 1
+                              ? "No pending tasks!"
+                              : "No incompleted tasks!",
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -242,7 +277,9 @@ class _HistoryTabState extends State<HistoryTab> {
                     Text(
                       _selectedSegment == 0
                           ? "Complete tasks in Tab 1 to build your history."
-                          : "Great job! You've completed all tasks.",
+                          : _selectedSegment == 1
+                              ? "Great job! You've completed all tasks."
+                              : "No tasks have been marked as incompleted.",
                       style: const TextStyle(fontSize: 12, color: Color(0xFF7A706A)),
                     ),
                   ],
@@ -257,6 +294,8 @@ class _HistoryTabState extends State<HistoryTab> {
                   return TaskTile(
                     task: task,
                     onToggle: () => taskProvider.toggleTaskStatus(task.id),
+                    onRestore: () => taskProvider.restoreTask(task.id),
+                    onMarkIncomplete: () => taskProvider.markAsIncompleted(task.id),
                     onEdit: () {
                       showDialog(
                         context: context,
@@ -335,6 +374,30 @@ class _HistoryTabState extends State<HistoryTab> {
           ElevatedButton(
             onPressed: () {
               taskProvider.clearAllCompleted();
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text("Clear All"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmClearIncompleted(BuildContext context, TaskProvider taskProvider) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Clear Incompleted Tasks?"),
+        content: const Text("This will permanently delete all incompleted tasks."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              taskProvider.clearAllIncompleted();
               Navigator.pop(ctx);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),

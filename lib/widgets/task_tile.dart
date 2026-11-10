@@ -9,6 +9,8 @@ class TaskTile extends StatelessWidget {
   final VoidCallback onToggle;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback? onMarkIncomplete;
+  final VoidCallback? onRestore;
 
   const TaskTile({
     super.key,
@@ -16,6 +18,8 @@ class TaskTile extends StatelessWidget {
     required this.onToggle,
     required this.onEdit,
     required this.onDelete,
+    this.onMarkIncomplete,
+    this.onRestore,
   });
 
   @override
@@ -67,16 +71,25 @@ class TaskTile extends StatelessWidget {
                   child: SizedBox(
                     width: 24,
                     height: 24,
-                    child: Checkbox(
-                      value: task.isCompleted,
-                      onChanged: (_) => onToggle(),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      activeColor: linkedGoal != null
-                          ? Color(linkedGoal.colorValue)
-                          : const Color(0xFFD84315),
-                    ),
+                    child: task.isIncompleted
+                        ? InkWell(
+                            onTap: onRestore ?? onToggle,
+                            child: const Icon(
+                              Icons.remove_circle,
+                              size: 22,
+                              color: Color(0xFFE65100),
+                            ),
+                          )
+                        : Checkbox(
+                            value: task.isCompleted,
+                            onChanged: (_) => onToggle(),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            activeColor: linkedGoal != null
+                                ? Color(linkedGoal.colorValue)
+                                : const Color(0xFFD84315),
+                          ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -91,7 +104,9 @@ class TaskTile extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           color: task.isCompleted
                               ? const Color(0xFF9E948D)
-                              : const Color(0xFF2E2420),
+                              : task.isIncompleted
+                                  ? const Color(0xFF8D6E63)
+                                  : const Color(0xFF2E2420),
                           decoration: task.isCompleted
                               ? TextDecoration.lineThrough
                               : TextDecoration.none,
@@ -114,6 +129,29 @@ class TaskTile extends StatelessWidget {
                         spacing: 6,
                         runSpacing: 4,
                         children: [
+                          if (task.isIncompleted)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFE0B2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.remove_circle_outline, size: 10, color: Color(0xFFE65100)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    "INCOMPLETED",
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFFE65100),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
@@ -214,22 +252,21 @@ class TaskTile extends StatelessWidget {
                     } else if (val == 'delete') {
                       onDelete();
                     } else if (val == 'mark_incomplete') {
-                      if (task.isCompleted) {
-                        onToggle();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Task marked as incomplete"),
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Task is already incomplete"),
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      }
+                      onMarkIncomplete?.call();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Task marked as incompleted and moved to Overview"),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    } else if (val == 'restore') {
+                      onRestore?.call();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Task restored to active tasks"),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
                     }
                   },
                   itemBuilder: (ctx) => [
@@ -253,16 +290,28 @@ class TaskTile extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
-                      value: 'mark_incomplete',
-                      child: Row(
-                        children: [
-                          Icon(Icons.remove_circle_outline, size: 18, color: Color(0xFFE65100)),
-                          SizedBox(width: 8),
-                          Text("Mark as incomplete", style: TextStyle(color: Color(0xFFE65100))),
-                        ],
+                    if (task.isIncompleted)
+                      const PopupMenuItem(
+                        value: 'restore',
+                        child: Row(
+                          children: [
+                            Icon(Icons.restore, size: 18, color: Color(0xFF2E7D32)),
+                            SizedBox(width: 8),
+                            Text("Restore to Active", style: TextStyle(color: Color(0xFF2E7D32))),
+                          ],
+                        ),
+                      )
+                    else
+                      const PopupMenuItem(
+                        value: 'mark_incomplete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.remove_circle_outline, size: 18, color: Color(0xFFE65100)),
+                            SizedBox(width: 8),
+                            Text("Mark as incomplete", style: TextStyle(color: Color(0xFFE65100))),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ],

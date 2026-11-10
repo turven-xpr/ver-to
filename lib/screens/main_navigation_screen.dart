@@ -30,7 +30,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<String> _titles = const [
     "Tasks & To-Do",
     "Brick Wall Goals",
-    "Completed & Pending",
+    "Task Status & Overview",
     "Life Notes & Book",
   ];
 

@@ -119,6 +119,7 @@ class TasksTab extends StatelessWidget {
                   return TaskTile(
                     task: task,
                     onToggle: () => taskProvider.toggleTaskStatus(task.id),
+                    onMarkIncomplete: () => taskProvider.markAsIncompleted(task.id),
                     onEdit: () {
                       showDialog(
                         context: context,

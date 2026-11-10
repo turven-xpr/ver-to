@@ -32,7 +32,7 @@ class TaskProvider extends ChangeNotifier {
       final matchesSearch = _searchQuery.isEmpty ||
           t.title.toLowerCase().contains(_searchQuery) ||
           (t.description?.toLowerCase().contains(_searchQuery) ?? false);
-      return !t.isCompleted && matchesSearch;
+      return !t.isCompleted && !t.isIncompleted && matchesSearch;
     }).toList();
   }
 
@@ -42,6 +42,15 @@ class TaskProvider extends ChangeNotifier {
           t.title.toLowerCase().contains(_searchQuery) ||
           (t.description?.toLowerCase().contains(_searchQuery) ?? false);
       return t.isCompleted && matchesSearch;
+    }).toList();
+  }
+
+  List<TaskModel> get incompletedTasks {
+    return _tasks.where((t) {
+      final matchesSearch = _searchQuery.isEmpty ||
+          t.title.toLowerCase().contains(_searchQuery) ||
+          (t.description?.toLowerCase().contains(_searchQuery) ?? false);
+      return t.isIncompleted && matchesSearch;
     }).toList();
   }
 
@@ -210,6 +219,7 @@ class TaskProvider extends ChangeNotifier {
       final newStatus = !current.isCompleted;
       final updated = current.copyWith(
         isCompleted: newStatus,
+        isIncompleted: false, // If toggled, clear incompleted
         completedAt: newStatus ? DateTime.now() : null,
       );
 
@@ -218,6 +228,53 @@ class TaskProvider extends ChangeNotifier {
 
       await _syncService.saveLocalTasks(_userId, _tasks);
       await _syncService.syncTask(_userId, updated);
+    }
+  }
+
+  Future<void> markAsIncompleted(String taskId) async {
+    final index = _tasks.indexWhere((t) => t.id == taskId);
+    if (index != -1) {
+      final current = _tasks[index];
+      final updated = current.copyWith(
+        isIncompleted: true,
+        isCompleted: false,
+        completedAt: null,
+      );
+
+      _tasks[index] = updated;
+      notifyListeners();
+
+      await _syncService.saveLocalTasks(_userId, _tasks);
+      await _syncService.syncTask(_userId, updated);
+    }
+  }
+
+  Future<void> restoreTask(String taskId) async {
+    final index = _tasks.indexWhere((t) => t.id == taskId);
+    if (index != -1) {
+      final current = _tasks[index];
+      final updated = current.copyWith(
+        isIncompleted: false,
+        isCompleted: false,
+        completedAt: null,
+      );
+
+      _tasks[index] = updated;
+      notifyListeners();
+
+      await _syncService.saveLocalTasks(_userId, _tasks);
+      await _syncService.syncTask(_userId, updated);
+    }
+  }
+
+  Future<void> clearAllIncompleted() async {
+    final incompleted = _tasks.where((t) => t.isIncompleted).toList();
+    _tasks.removeWhere((t) => t.isIncompleted);
+    notifyListeners();
+
+    await _syncService.saveLocalTasks(_userId, _tasks);
+    for (var t in incompleted) {
+      await _syncService.deleteTask(_userId, t.id);
     }
   }
 

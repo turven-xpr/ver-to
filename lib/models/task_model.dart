@@ -5,6 +5,7 @@ class TaskModel {
   final String title;
   final String? description;
   final bool isCompleted;
+  final bool isIncompleted;
   final String? linkedGoalId;
   final String priority; // 'low', 'medium', 'high'
   final DateTime? dueDate;
@@ -16,6 +17,7 @@ class TaskModel {
     required this.title,
     this.description,
     this.isCompleted = false,
+    this.isIncompleted = false,
     this.linkedGoalId,
     this.priority = 'medium',
     this.dueDate,
@@ -29,6 +31,7 @@ class TaskModel {
     String? title,
     String? description,
     bool? isCompleted,
+    bool? isIncompleted,
     String? linkedGoalId,
     bool clearLinkedGoal = false,
     String? priority,
@@ -41,6 +44,7 @@ class TaskModel {
       title: title ?? this.title,
       description: description ?? this.description,
       isCompleted: isCompleted ?? this.isCompleted,
+      isIncompleted: isIncompleted ?? this.isIncompleted,
       linkedGoalId: clearLinkedGoal ? null : (linkedGoalId ?? this.linkedGoalId),
       priority: priority ?? this.priority,
       dueDate: dueDate ?? this.dueDate,
@@ -55,6 +59,7 @@ class TaskModel {
       'title': title,
       'description': description,
       'isCompleted': isCompleted,
+      'isIncompleted': isIncompleted,
       'linkedGoalId': linkedGoalId,
       'priority': priority,
       'dueDate': dueDate?.toIso8601String(),
@@ -69,6 +74,7 @@ class TaskModel {
       title: map['title'] ?? '',
       description: map['description'],
       isCompleted: map['isCompleted'] ?? false,
+      isIncompleted: map['isIncompleted'] ?? false,
       linkedGoalId: map['linkedGoalId'],
       priority: map['priority'] ?? 'medium',
       dueDate: map['dueDate'] != null ? DateTime.tryParse(map['dueDate']) : null,
