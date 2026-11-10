@@ -122,18 +122,23 @@ class NotesPdfTab extends StatelessWidget {
                     segments: [
                       ButtonSegment(
                         value: 'day',
-                        label: Text("Days (${noteProvider.notes.where((n) => n.periodType == 'day').length})"),
+                        label: Text("Days (${noteProvider.notes.where((n) => n.periodType == 'day' && n.linkedGoalId == null).length})"),
                         icon: const Icon(Icons.wb_sunny_outlined, size: 16),
                       ),
                       ButtonSegment(
                         value: 'week',
-                        label: Text("Weeks (${noteProvider.notes.where((n) => n.periodType == 'week').length})"),
+                        label: Text("Weeks (${noteProvider.notes.where((n) => n.periodType == 'week' && n.linkedGoalId == null).length})"),
                         icon: const Icon(Icons.calendar_view_week, size: 16),
                       ),
                       ButtonSegment(
                         value: 'month',
-                        label: Text("Months (${noteProvider.notes.where((n) => n.periodType == 'month').length})"),
+                        label: Text("Months (${noteProvider.notes.where((n) => n.periodType == 'month' && n.linkedGoalId == null).length})"),
                         icon: const Icon(Icons.calendar_month, size: 16),
+                      ),
+                      ButtonSegment(
+                        value: 'goal',
+                        label: Text("Walls (${noteProvider.notes.where((n) => n.linkedGoalId != null).length})"),
+                        icon: const Icon(Icons.foundation, size: 16),
                       ),
                     ],
                     selected: {noteProvider.selectedPeriod},
@@ -179,6 +184,9 @@ class NotesPdfTab extends StatelessWidget {
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   final note = notes[index];
+                  final linkedGoal = note.linkedGoalId != null
+                      ? goalProvider.goals.where((g) => g.id == note.linkedGoalId).firstOrNull
+                      : null;
                   return Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     padding: const EdgeInsets.all(16),
@@ -200,20 +208,49 @@ class NotesPdfTab extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFD84315).withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                _formatNoteDate(note.periodType, note.date),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFFD84315),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFD84315).withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    _formatNoteDate(note.periodType, note.date),
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFFD84315),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                if (linkedGoal != null) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Color(linkedGoal.colorValue).withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Text("🧱", style: TextStyle(fontSize: 10)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          linkedGoal.title,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(linkedGoal.colorValue),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                             PopupMenuButton<String>(
                               icon: const Icon(Icons.more_vert, size: 18, color: Color(0xFF8F847D)),

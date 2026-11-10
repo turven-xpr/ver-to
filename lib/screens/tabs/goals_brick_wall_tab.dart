@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../models/note_model.dart';
+import '../../models/goal_model.dart';
 import '../../providers/goal_provider.dart';
 import '../../providers/task_provider.dart';
+import '../../providers/note_provider.dart';
 import '../../widgets/brick_wall_view.dart';
 import '../../widgets/add_goal_dialog.dart';
 import '../../widgets/add_task_dialog.dart';
+import '../../widgets/add_goal_note_dialog.dart';
 
 class GoalsBrickWallTab extends StatefulWidget {
   const GoalsBrickWallTab({super.key});
@@ -20,6 +25,7 @@ class _GoalsBrickWallTabState extends State<GoalsBrickWallTab> {
   Widget build(BuildContext context) {
     final goalProvider = Provider.of<GoalProvider>(context);
     final taskProvider = Provider.of<TaskProvider>(context);
+    final noteProvider = Provider.of<NoteProvider>(context);
 
     final goals = goalProvider.goals;
 
@@ -69,6 +75,7 @@ class _GoalsBrickWallTabState extends State<GoalsBrickWallTab> {
     }
     final currentGoal = goals[_selectedGoalIndex];
     final linkedTasks = taskProvider.tasks.where((t) => t.linkedGoalId == currentGoal.id).toList();
+    final goalNotes = noteProvider.getNotesForGoal(currentGoal.id);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F4F0),
@@ -189,6 +196,192 @@ class _GoalsBrickWallTabState extends State<GoalsBrickWallTab> {
               },
             ),
             const SizedBox(height: 16),
+
+            // ==================== WALL NOTES SECTION ====================
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.edit_note, size: 20, color: Color(currentGoal.colorValue)),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Wall Notes & Reflections (${goalNotes.length})",
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2E2420),
+                        ),
+                      ),
+                    ],
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _openAddGoalNoteDialog(context, currentGoal),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text("Add Note", style: TextStyle(fontSize: 12)),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Color(currentGoal.colorValue),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (goalNotes.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE5DFD9)),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.sticky_note_2_outlined, size: 30, color: Color(currentGoal.colorValue).withOpacity(0.5)),
+                      const SizedBox(height: 6),
+                      const Text(
+                        "No notes added to this wall yet.",
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF4A403A)),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        "Keep milestone reflections, lessons learned, or strategy notes right here under the wall.",
+                        style: TextStyle(fontSize: 12, color: Color(0xFF8F847D)),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: () => _openAddGoalNoteDialog(context, currentGoal),
+                        icon: const Icon(Icons.add, size: 14),
+                        label: const Text("Add First Note", style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Color(currentGoal.colorValue),
+                          side: BorderSide(color: Color(currentGoal.colorValue).withOpacity(0.5)),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: goalNotes.length,
+                itemBuilder: (context, idx) {
+                  final note = goalNotes[idx];
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE5DFD9)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 4,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                      color: Color(currentGoal.colorValue),
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      note.title.isNotEmpty ? note.title : "Reflection",
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF2E2420),
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              DateFormat("MMM d, y • HH:mm").format(note.createdAt),
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF8F847D)),
+                            ),
+                            PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_vert, size: 16, color: Color(0xFF8F847D)),
+                              padding: EdgeInsets.zero,
+                              onSelected: (val) {
+                                if (val == 'edit') {
+                                  _openEditGoalNoteDialog(context, currentGoal, note);
+                                } else if (val == 'delete') {
+                                  _confirmDeleteNote(context, note);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.edit_outlined, size: 16),
+                                      SizedBox(width: 8),
+                                      Text("Edit Note", style: TextStyle(fontSize: 13)),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                                      SizedBox(width: 8),
+                                      Text("Delete", style: TextStyle(fontSize: 13, color: Colors.red)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          note.content,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            height: 1.4,
+                            color: Color(0xFF4A403A),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+            const SizedBox(height: 20),
+
+            // ==================== LINKED TASKS SECTION ====================
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
@@ -261,6 +454,64 @@ class _GoalsBrickWallTabState extends State<GoalsBrickWallTab> {
         onPressed: () => _openAddGoalDialog(context),
         icon: const Icon(Icons.add),
         label: const Text("New Goal Wall"),
+      ),
+    );
+  }
+
+  void _openAddGoalNoteDialog(BuildContext context, GoalModel currentGoal) {
+    final noteProvider = Provider.of<NoteProvider>(context, listen: false);
+    showDialog(
+      context: context,
+      builder: (ctx) => AddGoalNoteDialog(
+        goal: currentGoal,
+        onSave: (title, content) {
+          noteProvider.addGoalNote(
+            goalId: currentGoal.id,
+            title: title,
+            content: content,
+          );
+        },
+      ),
+    );
+  }
+
+  void _openEditGoalNoteDialog(BuildContext context, GoalModel currentGoal, NoteModel note) {
+    final noteProvider = Provider.of<NoteProvider>(context, listen: false);
+    showDialog(
+      context: context,
+      builder: (ctx) => AddGoalNoteDialog(
+        goal: currentGoal,
+        initialNote: note,
+        onSave: (title, content) {
+          noteProvider.updateNote(note.copyWith(
+            title: title,
+            content: content,
+          ));
+        },
+      ),
+    );
+  }
+
+  void _confirmDeleteNote(BuildContext context, NoteModel note) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Delete Note?"),
+        content: const Text("Are you sure you want to delete this wall note?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Provider.of<NoteProvider>(context, listen: false).deleteNote(note.id);
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text("Delete"),
+          ),
+        ],
       ),
     );
   }

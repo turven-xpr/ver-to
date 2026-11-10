@@ -161,6 +161,7 @@ class PdfService {
           else
             ...goals.map((goal) {
               final goalTasks = tasks.where((t) => t.linkedGoalId == goal.id).toList();
+              final goalNotes = notes.where((n) => n.linkedGoalId == goal.id).toList();
               final completedBricks = goalTasks.where((t) => t.isCompleted).length;
               final percent = goal.targetBricks > 0
                   ? ((completedBricks / goal.targetBricks) * 100).clamp(0, 100).toStringAsFixed(1)
@@ -198,6 +199,42 @@ class PdfService {
                       "Bricks Laid: $completedBricks / ${goal.targetBricks} | Tasks Linked: ${goalTasks.length}",
                       style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey800),
                     ),
+                    if (goalNotes.isNotEmpty) ...[
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        "Wall Notes & Reflections (${goalNotes.length}):",
+                        style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.brown800),
+                      ),
+                      ...goalNotes.map((gn) => pw.Container(
+                        margin: const pw.EdgeInsets.only(top: 4),
+                        padding: const pw.EdgeInsets.all(6),
+                        decoration: pw.BoxDecoration(
+                          color: PdfColors.grey100,
+                          borderRadius: pw.BorderRadius.circular(4),
+                          border: pw.Border.all(color: PdfColors.grey300),
+                        ),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Row(
+                              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                              children: [
+                                pw.Text(
+                                  gn.title.isNotEmpty ? gn.title : "Reflection",
+                                  style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.brown900),
+                                ),
+                                pw.Text(
+                                  DateFormat('MMM d, y').format(gn.createdAt),
+                                  style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                                ),
+                              ],
+                            ),
+                            pw.SizedBox(height: 2),
+                            pw.Text(gn.content, style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey800)),
+                          ],
+                        ),
+                      )),
+                    ],
                   ],
                 ),
               );

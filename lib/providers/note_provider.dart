@@ -32,8 +32,17 @@ class NoteProvider extends ChangeNotifier {
   }
 
   List<NoteModel> get currentFilteredNotes {
-    return _notes.where((n) => n.periodType == _selectedPeriod).toList()
+    if (_selectedPeriod == 'goal') {
+      return _notes.where((n) => n.linkedGoalId != null).toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+    return _notes.where((n) => n.periodType == _selectedPeriod && n.linkedGoalId == null).toList()
       ..sort((a, b) => b.date.compareTo(a.date));
+  }
+
+  List<NoteModel> getNotesForGoal(String goalId) {
+    return _notes.where((n) => n.linkedGoalId == goalId).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   Future<void> loadNotes() async {
@@ -87,12 +96,34 @@ class NoteProvider extends ChangeNotifier {
     required DateTime date,
     required String title,
     required String content,
+    String? linkedGoalId,
   }) async {
     final note = NoteModel(
       periodType: periodType,
       date: date,
       title: title,
       content: content,
+      linkedGoalId: linkedGoalId,
+    );
+
+    _notes.insert(0, note);
+    notifyListeners();
+
+    await _syncService.saveLocalNotes(_userId, _notes);
+    await _syncService.syncNote(_userId, note);
+  }
+
+  Future<void> addGoalNote({
+    required String goalId,
+    required String content,
+    String? title,
+  }) async {
+    final note = NoteModel(
+      periodType: 'day',
+      date: DateTime.now(),
+      title: (title != null && title.trim().isNotEmpty) ? title.trim() : 'Wall Reflection',
+      content: content.trim(),
+      linkedGoalId: goalId,
     );
 
     _notes.insert(0, note);
