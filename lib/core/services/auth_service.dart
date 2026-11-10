@@ -67,9 +67,25 @@ class AuthService {
       googleProvider.addScope('email');
       googleProvider.addScope('profile');
 
-      final UserCredential userCredential = kIsWeb
-          ? await _firebaseAuth.signInWithPopup(googleProvider)
-          : await _firebaseAuth.signInWithProvider(googleProvider);
+      UserCredential userCredential;
+      try {
+        userCredential = kIsWeb
+            ? await _firebaseAuth.signInWithPopup(googleProvider)
+            : await _firebaseAuth.signInWithProvider(googleProvider);
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'cancelled-popup-request' ||
+            e.code == 'popup-closed-by-user') {
+          debugPrint(
+              "Popup cancelled/closed (${e.code}). Retrying once after delay...");
+          // Small delay then retry once
+          await Future.delayed(const Duration(milliseconds: 500));
+          userCredential = kIsWeb
+              ? await _firebaseAuth.signInWithPopup(googleProvider)
+              : await _firebaseAuth.signInWithProvider(googleProvider);
+        } else {
+          rethrow;
+        }
+      }
 
       if (userCredential.user != null) {
         _currentUser = _fromFirebaseUser(userCredential.user!);

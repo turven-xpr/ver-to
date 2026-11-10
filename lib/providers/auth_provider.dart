@@ -14,6 +14,8 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
+  bool _isSigningIn = false;
+
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
@@ -22,6 +24,12 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<bool> signInWithGoogle() async {
+    // Prevent multiple concurrent sign-in attempts (causes cancelled-popup-request)
+    if (_isSigningIn) {
+      debugPrint("Sign-in already in progress, ignoring duplicate call.");
+      return false;
+    }
+    _isSigningIn = true;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -31,6 +39,7 @@ class AuthProvider extends ChangeNotifier {
       if (user != null) {
         _user = user;
         _isLoading = false;
+        _isSigningIn = false;
         notifyListeners();
         return true;
       }
@@ -40,6 +49,7 @@ class AuthProvider extends ChangeNotifier {
     }
 
     _isLoading = false;
+    _isSigningIn = false;
     notifyListeners();
     return false;
   }

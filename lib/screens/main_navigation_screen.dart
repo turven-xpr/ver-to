@@ -28,7 +28,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   ];
 
   final List<String> _titles = const [
-    "Tasks & To-Do",
+    "To-Do",
     "Brick Wall Goals",
     "Task Status & Overview",
     "Life Notes & Book",
@@ -84,7 +84,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 ),
                 Text(
                   auth.isFirebaseAvailable
-                      ? "Cloud Synced (Online/Offline Ready)"
+                      ? "Cloud Synced"
                       : "Local Storage Mode (.env Firebase ready)",
                   style: TextStyle(
                     fontSize: 10,
@@ -288,17 +288,28 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () async {
-                      Navigator.pop(ctx);
-                      final success = await auth.signInWithGoogle();
-                      if (context.mounted && !success && auth.errorMessage != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("Sign In info: ${auth.errorMessage}")),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.login, size: 20),
-                    label: const Text("Sign In with Google"),
+                    onPressed: auth.isLoading
+                        ? null
+                        : () async {
+                            Navigator.pop(ctx);
+                            final success = await auth.signInWithGoogle();
+                            if (context.mounted && !success && auth.errorMessage != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text("Sign In info: ${auth.errorMessage}")),
+                              );
+                            }
+                          },
+                    icon: auth.isLoading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.login, size: 20),
+                    label: Text(auth.isLoading ? "Signing In..." : "Sign In with Google"),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4285F4),
                       foregroundColor: Colors.white,
