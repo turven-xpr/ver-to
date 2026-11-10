@@ -40,6 +40,10 @@ jobs:
           cp .env assets/.env
           cp .env assets/env
 
+      - name: Print Keystore Fingerprint
+        run: |
+          keytool -list -v -keystore android/app/debug.keystore -alias androiddebugkey -storepass android | grep -E "SHA1|SHA256"
+
       - name: Install dependencies
         run: flutter pub get
 
