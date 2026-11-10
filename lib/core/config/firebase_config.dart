@@ -7,9 +7,14 @@ class FirebaseConfig {
   static bool _isInitialized = false;
   static bool get isInitialized => _isInitialized;
 
-  // Fallback defaults matching the project configuration
-  static const String _defaultApiKey = 'AIzaSyBp9HjrKXVX7Z7KrHLTViWzWTIzX5YkA24';
-  static const String _defaultAppId = '1:814646172972:web:7658a11e95e725dec42089';
+  // Web defaults
+  static const String _webApiKey = 'AIzaSyBp9HjrKXVX7Z7KrHLTViWzWTIzX5YkA24';
+  static const String _webAppId = '1:814646172972:web:7658a11e95e725dec42089';
+
+  // Android defaults (from google-services.json)
+  static const String _androidApiKey = 'AIzaSyD7ZpmhkjF9NrMRFmdgytAuvkEGO5Pmw4o';
+  static const String _androidAppId = '1:814646172972:android:1d5429ff8e6deb89c42089';
+
   static const String _defaultProjectId = 'todo-list-5042b';
   static const String _defaultSenderId = '814646172972';
   static const String _defaultAuthDomain = 'todo-list-5042b.firebaseapp.com';
@@ -27,21 +32,36 @@ class FirebaseConfig {
       } catch (_) {}
     }
 
-    String apiKey = _defaultApiKey;
-    String appId = _defaultAppId;
+    final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+    String apiKey = isAndroid ? _androidApiKey : _webApiKey;
+    String appId = isAndroid ? _androidAppId : _webAppId;
     String projectId = _defaultProjectId;
     String messagingSenderId = _defaultSenderId;
-    String? authDomain = _defaultAuthDomain;
+    String? authDomain = isAndroid ? null : _defaultAuthDomain;
     String? storageBucket = _defaultStorageBucket;
-    String? measurementId = _defaultMeasurementId;
+    String? measurementId = isAndroid ? null : _defaultMeasurementId;
 
     if (loaded && dotenv.isInitialized) {
-      final envApiKey = dotenv.maybeGet('FIREBASE_API_KEY');
-      if (envApiKey != null && envApiKey.isNotEmpty && !envApiKey.contains('your_firebase_api_key')) {
-        apiKey = envApiKey;
+      if (isAndroid) {
+        final envAndroidApiKey = dotenv.maybeGet('FIREBASE_ANDROID_API_KEY');
+        if (envAndroidApiKey != null && envAndroidApiKey.isNotEmpty) {
+          apiKey = envAndroidApiKey;
+        }
+        final envAndroidAppId = dotenv.maybeGet('FIREBASE_ANDROID_APP_ID');
+        if (envAndroidAppId != null && envAndroidAppId.isNotEmpty) {
+          appId = envAndroidAppId;
+        }
+      } else {
+        final envApiKey = dotenv.maybeGet('FIREBASE_API_KEY');
+        if (envApiKey != null && envApiKey.isNotEmpty && !envApiKey.contains('your_firebase_api_key')) {
+          apiKey = envApiKey;
+        }
+        final envAppId = dotenv.maybeGet('FIREBASE_APP_ID');
+        if (envAppId != null && envAppId.isNotEmpty) {
+          appId = envAppId;
+        }
       }
-      final envAppId = dotenv.maybeGet('FIREBASE_APP_ID');
-      if (envAppId != null && envAppId.isNotEmpty) appId = envAppId;
 
       final envProjId = dotenv.maybeGet('FIREBASE_PROJECT_ID');
       if (envProjId != null && envProjId.isNotEmpty) projectId = envProjId;
@@ -79,7 +99,7 @@ class FirebaseConfig {
           projectId: projectId,
           authDomain: authDomain,
           storageBucket: storageBucket,
-          measurementId: measurementId.isNotEmpty ? measurementId : null,
+          measurementId: (measurementId != null && measurementId.isNotEmpty) ? measurementId : null,
         ),
       );
 
