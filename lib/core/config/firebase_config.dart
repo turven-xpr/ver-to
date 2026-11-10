@@ -21,7 +21,21 @@ class FirebaseConfig {
   static const String _defaultStorageBucket = 'todo-list-5042b.firebasestorage.app';
   static const String _defaultMeasurementId = 'G-V1K9K5ZR9K';
 
+  static bool _isValidCredential(String? val) {
+    if (val == null || val.trim().isEmpty) return false;
+    final lower = val.toLowerCase();
+    return !lower.contains('your_') && !lower.contains('example') && !lower.contains('here');
+  }
+
   static Future<void> initialize() async {
+    // If Firebase is already initialized natively (e.g. by Google Services on Android)
+    if (Firebase.apps.isNotEmpty) {
+      _isInitialized = true;
+      _configureFirestore();
+      debugPrint("✅ Firebase was already initialized natively.");
+      return;
+    }
+
     // Try multiple possible paths for .env asset
     bool loaded = false;
     for (final fileName in [".env", "assets/.env", "assets/env"]) {
@@ -45,65 +59,89 @@ class FirebaseConfig {
     if (loaded && dotenv.isInitialized) {
       if (isAndroid) {
         final envAndroidApiKey = dotenv.maybeGet('FIREBASE_ANDROID_API_KEY');
-        if (envAndroidApiKey != null && envAndroidApiKey.isNotEmpty) {
-          apiKey = envAndroidApiKey;
+        if (_isValidCredential(envAndroidApiKey)) {
+          apiKey = envAndroidApiKey!;
         }
         final envAndroidAppId = dotenv.maybeGet('FIREBASE_ANDROID_APP_ID');
-        if (envAndroidAppId != null && envAndroidAppId.isNotEmpty) {
-          appId = envAndroidAppId;
+        if (_isValidCredential(envAndroidAppId)) {
+          appId = envAndroidAppId!;
         }
       } else {
         final envApiKey = dotenv.maybeGet('FIREBASE_API_KEY');
-        if (envApiKey != null && envApiKey.isNotEmpty && !envApiKey.contains('your_firebase_api_key')) {
-          apiKey = envApiKey;
+        if (_isValidCredential(envApiKey)) {
+          apiKey = envApiKey!;
         }
         final envAppId = dotenv.maybeGet('FIREBASE_APP_ID');
-        if (envAppId != null && envAppId.isNotEmpty) {
-          appId = envAppId;
+        if (_isValidCredential(envAppId)) {
+          appId = envAppId!;
         }
       }
 
       final envProjId = dotenv.maybeGet('FIREBASE_PROJECT_ID');
-      if (envProjId != null && envProjId.isNotEmpty) projectId = envProjId;
+      if (_isValidCredential(envProjId)) projectId = envProjId!;
 
       final envSenderId = dotenv.maybeGet('FIREBASE_MESSAGING_SENDER_ID');
-      if (envSenderId != null && envSenderId.isNotEmpty) messagingSenderId = envSenderId;
+      if (_isValidCredential(envSenderId)) messagingSenderId = envSenderId!;
 
       final envAuthDomain = dotenv.maybeGet('FIREBASE_AUTH_DOMAIN');
-      if (envAuthDomain != null && envAuthDomain.isNotEmpty) authDomain = envAuthDomain;
+      if (_isValidCredential(envAuthDomain)) authDomain = envAuthDomain;
 
       final envStorageBucket = dotenv.maybeGet('FIREBASE_STORAGE_BUCKET');
-      if (envStorageBucket != null && envStorageBucket.isNotEmpty) storageBucket = envStorageBucket;
+      if (_isValidCredential(envStorageBucket)) storageBucket = envStorageBucket;
 
       final envMeasId = dotenv.maybeGet('FIREBASE_MEASUREMENT_ID');
-      if (envMeasId != null && envMeasId.isNotEmpty) measurementId = envMeasId;
-    }
-
-    final hasValidCredentials = apiKey.isNotEmpty &&
-        appId.isNotEmpty &&
-        projectId.isNotEmpty &&
-        !apiKey.contains('your_firebase_api_key');
-
-    if (!hasValidCredentials) {
-      debugPrint("ℹ️ Firebase credentials not provided. Running in Offline-First Local Mode.");
-      _isInitialized = false;
-      return;
+      if (_isValidCredential(envMeasId)) measurementId = envMeasId;
     }
 
     try {
-      await Firebase.initializeApp(
-        options: FirebaseOptions(
-          apiKey: apiKey,
-          appId: appId,
-          messagingSenderId: messagingSenderId,
-          projectId: projectId,
-          authDomain: authDomain,
-          storageBucket: storageBucket,
-          measurementId: (measurementId != null && measurementId.isNotEmpty) ? measurementId : null,
-        ),
-      );
+      if (Firebase.apps.isEmpty) {
+        if (kIsWeb) {
+          await Firebase.initializeApp(
+            options: FirebaseOptions(
+              apiKey: apiKey,
+              appId: appId,
+              messagingSenderId: messagingSenderId,
+              projectId: projectId,
+              authDomain: authDomain,
+              storageBucket: storageBucket,
+              measurementId: (measurementId != null && measurementId.isNotEmpty) ? measurementId : null,
+            ),
+          );
+        } else {
+          // On Android/iOS, try native auto-config first, fallback to explicit options
+          try {
+            await Firebase.initializeApp();
+          } catch (_) {
+            await Firebase.initializeApp(
+              options: FirebaseOptions(
+                apiKey: apiKey,
+                appId: appId,
+                messagingSenderId: messagingSenderId,
+                projectId: projectId,
+                storageBucket: storageBucket,
+              ),
+            );
+          }
+        }
+      }
 
-      // Enable offline persistence for Firestore
+      _configureFirestore();
+      _isInitialized = Firebase.apps.isNotEmpty;
+      debugPrint("✅ Firebase initialized successfully with offline persistence for project $projectId.");
+    } catch (e) {
+      if (Firebase.apps.isNotEmpty) {
+        _isInitialized = true;
+        _configureFirestore();
+        debugPrint("✅ Firebase default app available after: $e");
+      } else {
+        debugPrint("⚠️ Firebase initialization note: $e. Falling back to local offline-first mode.");
+        _isInitialized = false;
+      }
+    }
+  }
+
+  static void _configureFirestore() {
+    try {
       if (kIsWeb) {
         FirebaseFirestore.instance.settings = const Settings(
           persistenceEnabled: true,
@@ -114,12 +152,8 @@ class FirebaseConfig {
           cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
         );
       }
-
-      _isInitialized = true;
-      debugPrint("✅ Firebase initialized successfully with offline persistence for project $projectId.");
     } catch (e) {
-      debugPrint("⚠️ Firebase initialization note: $e. Falling back to local offline-first mode.");
-      _isInitialized = false;
+      debugPrint("Firestore settings note: $e");
     }
   }
 }

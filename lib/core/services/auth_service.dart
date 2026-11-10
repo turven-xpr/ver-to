@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../config/firebase_config.dart';
 
@@ -19,26 +20,35 @@ class AppUser {
 }
 
 class AuthService {
-  final FirebaseAuth? _firebaseAuth =
-      FirebaseConfig.isInitialized ? FirebaseAuth.instance : null;
+  FirebaseAuth? get _firebaseAuth {
+    if (FirebaseConfig.isInitialized && Firebase.apps.isNotEmpty) {
+      try {
+        return FirebaseAuth.instance;
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
 
   AppUser? _currentUser;
   AppUser? get currentUser => _currentUser;
 
   AuthService() {
-    if (FirebaseConfig.isInitialized && _firebaseAuth != null) {
-      final user = _firebaseAuth.currentUser;
+    final auth = _firebaseAuth;
+    if (auth != null) {
+      final user = auth.currentUser;
       if (user != null) {
         _currentUser = _fromFirebaseUser(user);
+        return;
       }
-    } else {
-      _currentUser = AppUser(
-        uid: 'guest_local_user',
-        displayName: 'Offline Builder',
-        email: 'local@builder.app',
-        isGuest: true,
-      );
     }
+    _currentUser = AppUser(
+      uid: 'guest_local_user',
+      displayName: 'Offline Builder',
+      email: 'local@builder.app',
+      isGuest: true,
+    );
   }
 
   AppUser _fromFirebaseUser(User user) {
@@ -52,7 +62,8 @@ class AuthService {
   }
 
   Future<AppUser?> signInWithGoogle() async {
-    if (!FirebaseConfig.isInitialized || _firebaseAuth == null) {
+    final auth = _firebaseAuth;
+    if (auth == null) {
       debugPrint("Firebase not configured. Running in Guest/Offline mode.");
       _currentUser = AppUser(
         uid: 'guest_local_user',
@@ -70,8 +81,8 @@ class AuthService {
       UserCredential userCredential;
       try {
         userCredential = kIsWeb
-            ? await _firebaseAuth.signInWithPopup(googleProvider)
-            : await _firebaseAuth.signInWithProvider(googleProvider);
+            ? await auth.signInWithPopup(googleProvider)
+            : await auth.signInWithProvider(googleProvider);
       } on FirebaseAuthException catch (e) {
         if (e.code == 'cancelled-popup-request' ||
             e.code == 'popup-closed-by-user') {
@@ -80,8 +91,8 @@ class AuthService {
           // Small delay then retry once
           await Future.delayed(const Duration(milliseconds: 500));
           userCredential = kIsWeb
-              ? await _firebaseAuth.signInWithPopup(googleProvider)
-              : await _firebaseAuth.signInWithProvider(googleProvider);
+              ? await auth.signInWithPopup(googleProvider)
+              : await auth.signInWithProvider(googleProvider);
         } else {
           rethrow;
         }
@@ -99,8 +110,9 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    if (FirebaseConfig.isInitialized && _firebaseAuth != null) {
-      await _firebaseAuth.signOut();
+    final auth = _firebaseAuth;
+    if (auth != null) {
+      await auth.signOut();
     }
     _currentUser = AppUser(
       uid: 'guest_local_user',
