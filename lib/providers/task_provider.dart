@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/task_model.dart';
 import '../core/services/sync_service.dart';
 
@@ -131,7 +132,11 @@ class TaskProvider extends ChangeNotifier {
 
     _tasks = await _syncService.loadTasks(_userId);
 
-    if (_tasks.isEmpty) {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeeded = prefs.getBool('seeded_tasks_$_userId') ?? false;
+
+    if (_tasks.isEmpty && !hasSeeded && _userId == 'guest_local_user') {
+      await prefs.setBool('seeded_tasks_$_userId', true);
       final now = DateTime.now();
       final starterTasks = [
         TaskModel(

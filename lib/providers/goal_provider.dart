@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/goal_model.dart';
 import '../models/task_model.dart';
 import '../core/services/sync_service.dart';
@@ -26,7 +27,11 @@ class GoalProvider extends ChangeNotifier {
 
     _goals = await _syncService.loadGoals(_userId);
 
-    if (_goals.isEmpty) {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeeded = prefs.getBool('seeded_goals_$_userId') ?? false;
+
+    if (_goals.isEmpty && !hasSeeded && _userId == 'guest_local_user') {
+      await prefs.setBool('seeded_goals_$_userId', true);
       final starterGoals = [
         GoalModel(
           id: 'goal_flutter_mastery',

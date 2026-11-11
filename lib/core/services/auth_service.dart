@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../config/firebase_config.dart';
 
 class AppUser {
@@ -20,6 +21,8 @@ class AppUser {
 }
 
 class AuthService {
+  static bool _googleSignInInitialized = false;
+
   FirebaseAuth? get _firebaseAuth {
     if (FirebaseConfig.isInitialized && Firebase.apps.isNotEmpty) {
       try {
@@ -74,27 +77,42 @@ class AuthService {
     }
 
     try {
-      final GoogleAuthProvider googleProvider = GoogleAuthProvider();
-      googleProvider.addScope('email');
-      googleProvider.addScope('profile');
-
       UserCredential userCredential;
-      try {
-        userCredential = kIsWeb
-            ? await auth.signInWithPopup(googleProvider)
-            : await auth.signInWithProvider(googleProvider);
-      } on FirebaseAuthException catch (e) {
-        if (e.code == 'cancelled-popup-request' ||
-            e.code == 'popup-closed-by-user') {
-          debugPrint(
-              "Popup cancelled/closed (${e.code}). Retrying once after delay...");
-          // Small delay then retry once
-          await Future.delayed(const Duration(milliseconds: 500));
-          userCredential = kIsWeb
-              ? await auth.signInWithPopup(googleProvider)
-              : await auth.signInWithProvider(googleProvider);
-        } else {
-          rethrow;
+
+      if (kIsWeb) {
+        final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+        googleProvider.addScope('email');
+        googleProvider.addScope('profile');
+        userCredential = await auth.signInWithPopup(googleProvider);
+      } else {
+        // Native Android/iOS Google Sign In (in-app bottom sheet dialog)
+        try {
+          if (!_googleSignInInitialized) {
+            await GoogleSignIn.instance.initialize(
+              serverClientId: '814646172972-8jj81obfe51ts414vfj1vbdmlr9gaqe1.apps.googleusercontent.com',
+            );
+            _googleSignInInitialized = true;
+          }
+
+          final GoogleSignInAccount account = await GoogleSignIn.instance.authenticate();
+          final String? idToken = account.authentication.idToken;
+
+          if (idToken != null && idToken.isNotEmpty) {
+            final AuthCredential credential = GoogleAuthProvider.credential(idToken: idToken);
+            userCredential = await auth.signInWithCredential(credential);
+          } else {
+            // Fallback if idToken not returned
+            final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+            googleProvider.addScope('email');
+            googleProvider.addScope('profile');
+            userCredential = await auth.signInWithProvider(googleProvider);
+          }
+        } catch (e) {
+          debugPrint("In-app GoogleSignIn note: $e. Falling back to signInWithProvider...");
+          final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+          googleProvider.addScope('email');
+          googleProvider.addScope('profile');
+          userCredential = await auth.signInWithProvider(googleProvider);
         }
       }
 
@@ -110,6 +128,12 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    try {
+      if (!kIsWeb && _googleSignInInitialized) {
+        await GoogleSignIn.instance.signOut();
+      }
+    } catch (_) {}
+
     final auth = _firebaseAuth;
     if (auth != null) {
       await auth.signOut();

@@ -19,6 +19,7 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
+  String? _currentUserId;
 
   final List<Widget> _tabs = const [
     TasksTab(),
@@ -34,21 +35,33 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     "Life Notes & Book",
   ];
 
+  void _updateUser(String uid) {
+    if (_currentUserId != uid) {
+      _currentUserId = uid;
+      Provider.of<GoalProvider>(context, listen: false).updateUserId(uid);
+      Provider.of<TaskProvider>(context, listen: false).updateUserId(uid);
+      Provider.of<NoteProvider>(context, listen: false).updateUserId(uid);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = Provider.of<AuthProvider>(context, listen: false);
-      final uid = auth.user?.uid ?? 'guest_local_user';
-      Provider.of<GoalProvider>(context, listen: false).updateUserId(uid);
-      Provider.of<TaskProvider>(context, listen: false).updateUserId(uid);
-      Provider.of<NoteProvider>(context, listen: false).updateUserId(uid);
+      _updateUser(auth.user?.uid ?? 'guest_local_user');
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
+    final uid = auth.user?.uid ?? 'guest_local_user';
+    if (_currentUserId != uid) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _updateUser(uid);
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -293,10 +306,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                         : () async {
                             Navigator.pop(ctx);
                             final success = await auth.signInWithGoogle();
-                            if (context.mounted && !success && auth.errorMessage != null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text("Sign In info: ${auth.errorMessage}")),
-                              );
+                            if (context.mounted) {
+                              if (success) {
+                                _updateUser(auth.user?.uid ?? 'guest_local_user');
+                              } else if (auth.errorMessage != null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text("Sign In info: ${auth.errorMessage}")),
+                                );
+                              }
                             }
                           },
                     icon: auth.isLoading
@@ -322,9 +339,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: () {
-                      auth.signOut();
-                      Navigator.pop(ctx);
+                    onPressed: () async {
+                      await auth.signOut();
+                      if (context.mounted) {
+                        _updateUser('guest_local_user');
+                        Navigator.pop(ctx);
+                      }
                     },
                     icon: const Icon(Icons.logout, size: 18),
                     label: const Text("Sign Out"),

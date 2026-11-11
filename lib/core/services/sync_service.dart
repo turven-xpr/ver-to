@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/task_model.dart';
 import '../../models/goal_model.dart';
@@ -12,8 +13,16 @@ class SyncService {
   static const String _goalsKey = 'cached_goals_v1';
   static const String _notesKey = 'cached_notes_v1';
 
-  final FirebaseFirestore? _firestore =
-      FirebaseConfig.isInitialized ? FirebaseFirestore.instance : null;
+  FirebaseFirestore? get _firestore {
+    if (FirebaseConfig.isInitialized && Firebase.apps.isNotEmpty) {
+      try {
+        return FirebaseFirestore.instance;
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
 
   // ---------------- TASKS ----------------
   Future<List<TaskModel>> loadTasks(String userId) async {
@@ -30,9 +39,10 @@ class SyncService {
       }
     }
 
-    if (FirebaseConfig.isInitialized && _firestore != null && userId != 'guest_local_user') {
+    final firestore = _firestore;
+    if (FirebaseConfig.isInitialized && firestore != null && userId != 'guest_local_user') {
       try {
-        final snapshot = await _firestore
+        final snapshot = await firestore
             .collection('users')
             .doc(userId)
             .collection('tasks')
@@ -42,14 +52,14 @@ class SyncService {
           final remoteTasks = snapshot.docs
               .map((doc) => TaskModel.fromMap(doc.data(), doc.id))
               .toList();
-
-          final map = {for (var t in localTasks) t.id: t};
-          for (var rt in remoteTasks) {
-            map[rt.id] = rt;
+          await saveLocalTasks(userId, remoteTasks);
+          return remoteTasks;
+        } else if (localTasks.isNotEmpty) {
+          // First time syncing this user: upload local tasks to remote
+          for (var t in localTasks) {
+            await syncTask(userId, t);
           }
-          final merged = map.values.toList();
-          await saveLocalTasks(userId, merged);
-          return merged;
+          return localTasks;
         }
       } catch (e) {
         debugPrint("Notice: Fetching remote tasks from Firestore fallback: $e");
@@ -66,9 +76,10 @@ class SyncService {
   }
 
   Future<void> syncTask(String userId, TaskModel task) async {
-    if (FirebaseConfig.isInitialized && _firestore != null && userId != 'guest_local_user') {
+    final firestore = _firestore;
+    if (FirebaseConfig.isInitialized && firestore != null && userId != 'guest_local_user') {
       try {
-        await _firestore
+        await firestore
             .collection('users')
             .doc(userId)
             .collection('tasks')
@@ -81,9 +92,10 @@ class SyncService {
   }
 
   Future<void> deleteTask(String userId, String taskId) async {
-    if (FirebaseConfig.isInitialized && _firestore != null && userId != 'guest_local_user') {
+    final firestore = _firestore;
+    if (FirebaseConfig.isInitialized && firestore != null && userId != 'guest_local_user') {
       try {
-        await _firestore
+        await firestore
             .collection('users')
             .doc(userId)
             .collection('tasks')
@@ -110,9 +122,10 @@ class SyncService {
       }
     }
 
-    if (FirebaseConfig.isInitialized && _firestore != null && userId != 'guest_local_user') {
+    final firestore = _firestore;
+    if (FirebaseConfig.isInitialized && firestore != null && userId != 'guest_local_user') {
       try {
-        final snapshot = await _firestore
+        final snapshot = await firestore
             .collection('users')
             .doc(userId)
             .collection('goals')
@@ -122,13 +135,13 @@ class SyncService {
           final remoteGoals = snapshot.docs
               .map((doc) => GoalModel.fromMap(doc.data(), doc.id))
               .toList();
-          final map = {for (var g in localGoals) g.id: g};
-          for (var rg in remoteGoals) {
-            map[rg.id] = rg;
+          await saveLocalGoals(userId, remoteGoals);
+          return remoteGoals;
+        } else if (localGoals.isNotEmpty) {
+          for (var g in localGoals) {
+            await syncGoal(userId, g);
           }
-          final merged = map.values.toList();
-          await saveLocalGoals(userId, merged);
-          return merged;
+          return localGoals;
         }
       } catch (e) {
         debugPrint("Notice: Fetching remote goals from Firestore fallback: $e");
@@ -145,9 +158,10 @@ class SyncService {
   }
 
   Future<void> syncGoal(String userId, GoalModel goal) async {
-    if (FirebaseConfig.isInitialized && _firestore != null && userId != 'guest_local_user') {
+    final firestore = _firestore;
+    if (FirebaseConfig.isInitialized && firestore != null && userId != 'guest_local_user') {
       try {
-        await _firestore
+        await firestore
             .collection('users')
             .doc(userId)
             .collection('goals')
@@ -160,9 +174,10 @@ class SyncService {
   }
 
   Future<void> deleteGoal(String userId, String goalId) async {
-    if (FirebaseConfig.isInitialized && _firestore != null && userId != 'guest_local_user') {
+    final firestore = _firestore;
+    if (FirebaseConfig.isInitialized && firestore != null && userId != 'guest_local_user') {
       try {
-        await _firestore
+        await firestore
             .collection('users')
             .doc(userId)
             .collection('goals')
@@ -189,9 +204,10 @@ class SyncService {
       }
     }
 
-    if (FirebaseConfig.isInitialized && _firestore != null && userId != 'guest_local_user') {
+    final firestore = _firestore;
+    if (FirebaseConfig.isInitialized && firestore != null && userId != 'guest_local_user') {
       try {
-        final snapshot = await _firestore
+        final snapshot = await firestore
             .collection('users')
             .doc(userId)
             .collection('notes')
@@ -201,13 +217,13 @@ class SyncService {
           final remoteNotes = snapshot.docs
               .map((doc) => NoteModel.fromMap(doc.data(), doc.id))
               .toList();
-          final map = {for (var n in localNotes) n.id: n};
-          for (var rn in remoteNotes) {
-            map[rn.id] = rn;
+          await saveLocalNotes(userId, remoteNotes);
+          return remoteNotes;
+        } else if (localNotes.isNotEmpty) {
+          for (var n in localNotes) {
+            await syncNote(userId, n);
           }
-          final merged = map.values.toList();
-          await saveLocalNotes(userId, merged);
-          return merged;
+          return localNotes;
         }
       } catch (e) {
         debugPrint("Notice: Fetching remote notes from Firestore fallback: $e");
@@ -224,9 +240,10 @@ class SyncService {
   }
 
   Future<void> syncNote(String userId, NoteModel note) async {
-    if (FirebaseConfig.isInitialized && _firestore != null && userId != 'guest_local_user') {
+    final firestore = _firestore;
+    if (FirebaseConfig.isInitialized && firestore != null && userId != 'guest_local_user') {
       try {
-        await _firestore
+        await firestore
             .collection('users')
             .doc(userId)
             .collection('notes')
@@ -239,9 +256,10 @@ class SyncService {
   }
 
   Future<void> deleteNote(String userId, String noteId) async {
-    if (FirebaseConfig.isInitialized && _firestore != null && userId != 'guest_local_user') {
+    final firestore = _firestore;
+    if (FirebaseConfig.isInitialized && firestore != null && userId != 'guest_local_user') {
       try {
-        await _firestore
+        await firestore
             .collection('users')
             .doc(userId)
             .collection('notes')
