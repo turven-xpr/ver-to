@@ -21,8 +21,6 @@ class AppUser {
 }
 
 class AuthService {
-  static bool _googleSignInInitialized = false;
-
   FirebaseAuth? get _firebaseAuth {
     if (FirebaseConfig.isInitialized && Firebase.apps.isNotEmpty) {
       try {
@@ -85,30 +83,28 @@ class AuthService {
         googleProvider.addScope('profile');
         userCredential = await auth.signInWithPopup(googleProvider);
       } else {
-        // Native Android/iOS Google Sign In (in-app bottom sheet dialog)
+        // Native Android/iOS Google Sign-In bottom sheet dialog
         try {
-          if (!_googleSignInInitialized) {
-            await GoogleSignIn.instance.initialize(
-              serverClientId: '814646172972-8jj81obfe51ts414vfj1vbdmlr9gaqe1.apps.googleusercontent.com',
-            );
-            _googleSignInInitialized = true;
+          final GoogleSignIn googleSignIn = GoogleSignIn(
+            scopes: ['email', 'profile'],
+            serverClientId: '814646172972-8jj81obfe51ts414vfj1vbdmlr9gaqe1.apps.googleusercontent.com',
+          );
+
+          final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+          if (googleUser == null) {
+            // User cancelled the sign-in prompt
+            return null;
           }
 
-          final GoogleSignInAccount account = await GoogleSignIn.instance.authenticate();
-          final String? idToken = account.authentication.idToken;
+          final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+          final AuthCredential credential = GoogleAuthProvider.credential(
+            accessToken: googleAuth.accessToken,
+            idToken: googleAuth.idToken,
+          );
 
-          if (idToken != null && idToken.isNotEmpty) {
-            final AuthCredential credential = GoogleAuthProvider.credential(idToken: idToken);
-            userCredential = await auth.signInWithCredential(credential);
-          } else {
-            // Fallback if idToken not returned
-            final GoogleAuthProvider googleProvider = GoogleAuthProvider();
-            googleProvider.addScope('email');
-            googleProvider.addScope('profile');
-            userCredential = await auth.signInWithProvider(googleProvider);
-          }
+          userCredential = await auth.signInWithCredential(credential);
         } catch (e) {
-          debugPrint("In-app GoogleSignIn note: $e. Falling back to signInWithProvider...");
+          debugPrint("Native GoogleSignIn error: $e. Falling back to signInWithProvider...");
           final GoogleAuthProvider googleProvider = GoogleAuthProvider();
           googleProvider.addScope('email');
           googleProvider.addScope('profile');
@@ -129,8 +125,9 @@ class AuthService {
 
   Future<void> signOut() async {
     try {
-      if (!kIsWeb && _googleSignInInitialized) {
-        await GoogleSignIn.instance.signOut();
+      if (!kIsWeb) {
+        final GoogleSignIn googleSignIn = GoogleSignIn();
+        await googleSignIn.signOut();
       }
     } catch (_) {}
 
