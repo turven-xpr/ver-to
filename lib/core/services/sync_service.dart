@@ -6,12 +6,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/task_model.dart';
 import '../../models/goal_model.dart';
 import '../../models/note_model.dart';
+import '../../models/track_model.dart';
 import '../config/firebase_config.dart';
 
 class SyncService {
   static const String _tasksKey = 'cached_tasks_v1';
   static const String _goalsKey = 'cached_goals_v1';
   static const String _notesKey = 'cached_notes_v1';
+  static const String _trackItemsKey = 'cached_track_items_v1';
+  static const String _trackEntriesKey = 'cached_track_entries_v1';
 
   FirebaseFirestore? get _firestore {
     if (FirebaseConfig.isInitialized && Firebase.apps.isNotEmpty) {
@@ -267,6 +270,170 @@ class SyncService {
             .delete();
       } catch (e) {
         debugPrint("Firestore note delete queued offline: $e");
+      }
+    }
+  }
+
+  // ---------------- TRACK ITEMS ----------------
+  Future<List<TrackItemModel>> loadTrackItems(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = prefs.getString('${_trackItemsKey}_$userId');
+
+    List<TrackItemModel> localItems = [];
+    if (jsonStr != null) {
+      try {
+        final List list = jsonDecode(jsonStr);
+        localItems = list.map((e) => TrackItemModel.fromMap(e)).toList();
+      } catch (e) {
+        debugPrint("Error parsing cached track items: $e");
+      }
+    }
+
+    final firestore = _firestore;
+    if (FirebaseConfig.isInitialized && firestore != null && userId != 'guest_local_user') {
+      try {
+        final snapshot = await firestore
+            .collection('users')
+            .doc(userId)
+            .collection('track_items')
+            .get(const GetOptions(source: Source.serverAndCache));
+
+        if (snapshot.docs.isNotEmpty) {
+          final remoteItems = snapshot.docs
+              .map((doc) => TrackItemModel.fromMap(doc.data(), doc.id))
+              .toList();
+          await saveLocalTrackItems(userId, remoteItems);
+          return remoteItems;
+        } else if (localItems.isNotEmpty) {
+          for (var item in localItems) {
+            await syncTrackItem(userId, item);
+          }
+          return localItems;
+        }
+      } catch (e) {
+        debugPrint("Notice: Fetching remote track items fallback: $e");
+      }
+    }
+
+    return localItems;
+  }
+
+  Future<void> saveLocalTrackItems(String userId, List<TrackItemModel> items) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = jsonEncode(items.map((i) => i.toMap()).toList());
+    await prefs.setString('${_trackItemsKey}_$userId', jsonStr);
+  }
+
+  Future<void> syncTrackItem(String userId, TrackItemModel item) async {
+    final firestore = _firestore;
+    if (FirebaseConfig.isInitialized && firestore != null && userId != 'guest_local_user') {
+      try {
+        await firestore
+            .collection('users')
+            .doc(userId)
+            .collection('track_items')
+            .doc(item.id)
+            .set(item.toMap(), SetOptions(merge: true));
+      } catch (e) {
+        debugPrint("Firestore track item sync queued offline: $e");
+      }
+    }
+  }
+
+  Future<void> deleteTrackItem(String userId, String itemId) async {
+    final firestore = _firestore;
+    if (FirebaseConfig.isInitialized && firestore != null && userId != 'guest_local_user') {
+      try {
+        await firestore
+            .collection('users')
+            .doc(userId)
+            .collection('track_items')
+            .doc(itemId)
+            .delete();
+      } catch (e) {
+        debugPrint("Firestore track item delete queued offline: $e");
+      }
+    }
+  }
+
+  // ---------------- TRACK ENTRIES / NOTES ----------------
+  Future<List<TrackEntryModel>> loadTrackEntries(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = prefs.getString('${_trackEntriesKey}_$userId');
+
+    List<TrackEntryModel> localEntries = [];
+    if (jsonStr != null) {
+      try {
+        final List list = jsonDecode(jsonStr);
+        localEntries = list.map((e) => TrackEntryModel.fromMap(e)).toList();
+      } catch (e) {
+        debugPrint("Error parsing cached track entries: $e");
+      }
+    }
+
+    final firestore = _firestore;
+    if (FirebaseConfig.isInitialized && firestore != null && userId != 'guest_local_user') {
+      try {
+        final snapshot = await firestore
+            .collection('users')
+            .doc(userId)
+            .collection('track_entries')
+            .get(const GetOptions(source: Source.serverAndCache));
+
+        if (snapshot.docs.isNotEmpty) {
+          final remoteEntries = snapshot.docs
+              .map((doc) => TrackEntryModel.fromMap(doc.data(), doc.id))
+              .toList();
+          await saveLocalTrackEntries(userId, remoteEntries);
+          return remoteEntries;
+        } else if (localEntries.isNotEmpty) {
+          for (var entry in localEntries) {
+            await syncTrackEntry(userId, entry);
+          }
+          return localEntries;
+        }
+      } catch (e) {
+        debugPrint("Notice: Fetching remote track entries fallback: $e");
+      }
+    }
+
+    return localEntries;
+  }
+
+  Future<void> saveLocalTrackEntries(String userId, List<TrackEntryModel> entries) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = jsonEncode(entries.map((e) => e.toMap()).toList());
+    await prefs.setString('${_trackEntriesKey}_$userId', jsonStr);
+  }
+
+  Future<void> syncTrackEntry(String userId, TrackEntryModel entry) async {
+    final firestore = _firestore;
+    if (FirebaseConfig.isInitialized && firestore != null && userId != 'guest_local_user') {
+      try {
+        await firestore
+            .collection('users')
+            .doc(userId)
+            .collection('track_entries')
+            .doc(entry.id)
+            .set(entry.toMap(), SetOptions(merge: true));
+      } catch (e) {
+        debugPrint("Firestore track entry sync queued offline: $e");
+      }
+    }
+  }
+
+  Future<void> deleteTrackEntry(String userId, String entryId) async {
+    final firestore = _firestore;
+    if (FirebaseConfig.isInitialized && firestore != null && userId != 'guest_local_user') {
+      try {
+        await firestore
+            .collection('users')
+            .doc(userId)
+            .collection('track_entries')
+            .doc(entryId)
+            .delete();
+      } catch (e) {
+        debugPrint("Firestore track entry delete queued offline: $e");
       }
     }
   }

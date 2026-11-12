@@ -6,6 +6,7 @@ import 'providers/auth_provider.dart';
 import 'providers/goal_provider.dart';
 import 'providers/task_provider.dart';
 import 'providers/note_provider.dart';
+import 'providers/track_provider.dart';
 import 'screens/main_navigation_screen.dart';
 
 Future<void> main() async {
@@ -26,6 +27,7 @@ class BrickTaskApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => GoalProvider()),
         ChangeNotifierProvider(create: (_) => TaskProvider()),
         ChangeNotifierProvider(create: (_) => NoteProvider()),
+        ChangeNotifierProvider(create: (_) => TrackProvider()),
       ],
       child: MaterialApp(
         title: 'Brick Wall Tasks & Goals',

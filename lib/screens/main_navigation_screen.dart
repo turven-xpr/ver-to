@@ -4,11 +4,13 @@ import '../providers/auth_provider.dart';
 import '../providers/task_provider.dart';
 import '../providers/goal_provider.dart';
 import '../providers/note_provider.dart';
+import '../providers/track_provider.dart';
 import '../widgets/streak_modal.dart';
 import 'tabs/tasks_tab.dart';
 import 'tabs/goals_brick_wall_tab.dart';
 import 'tabs/history_tab.dart';
 import 'tabs/notes_pdf_tab.dart';
+import 'tabs/tracking_tab.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -24,6 +26,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _tabs = const [
     TasksTab(),
     GoalsBrickWallTab(),
+    TrackingTab(),
     HistoryTab(),
     NotesPdfTab(),
   ];
@@ -31,6 +34,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<String> _titles = const [
     "To-Do",
     "Brick Wall Goals",
+    "Behavior & Habit Tracking",
     "Task Status & Overview",
     "Life Notes & Book",
   ];
@@ -41,6 +45,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       Provider.of<GoalProvider>(context, listen: false).updateUserId(uid);
       Provider.of<TaskProvider>(context, listen: false).updateUserId(uid);
       Provider.of<NoteProvider>(context, listen: false).updateUserId(uid);
+      Provider.of<TrackProvider>(context, listen: false).updateUserId(uid);
     }
   }
 
@@ -67,24 +72,30 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
                   "🧱 ",
-                  style: TextStyle(fontSize: 20),
+                  style: TextStyle(fontSize: 18),
                 ),
-                Text(
-                  _titles[_currentIndex],
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2E2420),
+                Flexible(
+                  child: Text(
+                    _titles[_currentIndex],
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2E2420),
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
                   width: 7,
@@ -95,13 +106,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                     shape: BoxShape.circle,
                   ),
                 ),
-                Text(
-                  auth.isFirebaseAvailable
-                      ? "Cloud Synced"
-                      : "Local Storage Mode (.env Firebase ready)",
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: auth.isFirebaseAvailable ? Colors.green.shade800 : Colors.brown.shade600,
+                Flexible(
+                  child: Text(
+                    auth.isFirebaseAvailable
+                        ? "Cloud Synced"
+                        : "Local Storage Mode",
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: auth.isFirebaseAvailable ? Colors.green.shade800 : Colors.brown.shade600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -223,7 +237,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         selectedIndex: _currentIndex,
         onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
         backgroundColor: Colors.white,
-        indicatorColor: const Color(0xFFD84315).withOpacity(0.15),
+        indicatorColor: const Color(0xFFD84315).withValues(alpha: 0.15),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.check_circle_outline),
@@ -234,6 +248,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             icon: Icon(Icons.view_quilt_outlined),
             selectedIcon: Icon(Icons.view_quilt, color: Color(0xFFD84315)),
             label: "Brick Goals",
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.insights_outlined),
+            selectedIcon: Icon(Icons.insights, color: Color(0xFFD84315)),
+            label: "Tracking",
           ),
           NavigationDestination(
             icon: Icon(Icons.analytics_outlined),
