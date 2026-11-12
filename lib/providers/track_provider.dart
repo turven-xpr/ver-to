@@ -258,3 +258,4 @@ class TrackProvider extends ChangeNotifier {
     await _syncService.deleteTrackEntry(_userId, entryId);
   }
 }
+

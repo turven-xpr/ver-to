@@ -108,20 +108,15 @@ class FirebaseConfig {
             ),
           );
         } else {
-          // On Android/iOS, try native auto-config first, fallback to explicit options
-          try {
-            await Firebase.initializeApp();
-          } catch (_) {
-            await Firebase.initializeApp(
-              options: FirebaseOptions(
-                apiKey: apiKey,
-                appId: appId,
-                messagingSenderId: messagingSenderId,
-                projectId: projectId,
-                storageBucket: storageBucket,
-              ),
-            );
-          }
+          await Firebase.initializeApp(
+            options: FirebaseOptions(
+              apiKey: apiKey,
+              appId: appId,
+              messagingSenderId: messagingSenderId,
+              projectId: projectId,
+              storageBucket: storageBucket,
+            ),
+          );
         }
       }
 
